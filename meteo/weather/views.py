@@ -1,9 +1,10 @@
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from weather.models import CityCached
-from weather.serializers import CityCachedSerializer
+from weather.serializers import CityCachedSerializer, CityWeatherSerializer
 from weather.openmeteo_util import MeteoApi
 
 
@@ -58,4 +59,28 @@ class AutoCompleteView(APIView):
         except Exception as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CityWeatherView(APIView):
+    def get(self, request, city_id):
+        try:
+            city = get_object_or_404(CityCached, pk=city_id)
+
+            weather_data = MeteoApi.forecast(
+                longitude=city.longitude,
+                latitude=city.latitude
+            )
+
+            response_data = {
+                "city": CityWeatherSerializer(city).data,
+                "weather": weather_data
+            }
+
+            return Response(data=response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import CityCached
+from weather.models import CityCached
 
 
 class AutoCompleteSerializer(serializers.Serializer):
@@ -12,3 +12,10 @@ class CityCachedSerializer(serializers.ModelSerializer):
         model = CityCached
         fields = ["id", "name", "latitude", "longitude", "country"]
         read_only_fields = ["id"]
+
+
+class CityWeatherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CityCached
+        fields = ["id", "name", "latitude", "longitude", "country"]
+        read_only_fields = fields
