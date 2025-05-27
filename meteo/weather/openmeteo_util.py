@@ -13,14 +13,12 @@ class MeteoApi:
     @staticmethod
     def forecast(longitude: float, latitude: float) -> dict:
         hourly = HourlyForecast()
-        daily = DailyForecast()
 
         options = ForecastOptions(latitude, longitude)
 
         mgr = OpenMeteo(
             options,
-            hourly.shortwave_radiation(),
-            daily.shortwave_radiation_sum(),
+            hourly.temperature_2m(),
         )
 
         return mgr.get_dict()
