@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Search</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 30px;
+    grid-template-rows: auto auto; /* Добавьте это */
+}
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #cityInput {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid #d4d4d4;
+            border-bottom: none;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+        }
+
+        .autocomplete-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #d4d4d4;
+        }
+
+        .autocomplete-item:hover {
+            background-color: #e9e9e9;
+        }
+
+        #weatherChart {
+            margin-top: 20px;
+        }
+
+        .history-container {
+            border-left: 1px solid #ddd;
+            padding-left: 30px;
+        }
+
+        .history-item {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .history-item:hover {
+            background: #f5f5f5;
+        }
+
+        .pagination {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .pagination button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .pagination-info {
+            margin: auto 0;
+            color: #666;
+        }
+.stats-container {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.stats-item {
+    padding: 10px;
+    margin: 5px 0;
+    background: #f9f9f9;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stats-city {
+    font-weight: bold;
+}
+
+.stats-count {
+    background: #007bff;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.9em;
+}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="main-content">
+        <div class="search-container">
+            <input type="text" id="cityInput" placeholder="Enter city name...">
+            <div id="autocompleteList" class="autocomplete-items"></div>
+        </div>
+        <canvas id="weatherChart"></canvas>
+    </div>
+
+    <div class="history-container">
+        <h3>Search History</h3>
+        <div id="historyList"></div>
+        <div class="pagination">
+            <button id="prevPage">Previous</button>
+            <span class="pagination-info" id="pageInfo"></span>
+            <button id="nextPage">Next</button>
+        </div>
+    </div>
+</div>
+<div class="stats-container">
+    <h3>Search Statistics</h3>
+    <div id="statsList"></div>
+    <div class="pagination">
+        <button id="prevStatsPage">Previous</button>
+        <span class="pagination-info" id="statsPageInfo"></span>
+        <button id="nextStatsPage">Next</button>
+    </div>
+</div>
+<script>
+    let currentChart = null;
+    let abortController = null;
+    let currentPage = 1;
+    let totalPages = 1;
+
+    function debounce(func, delay) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    async function fetchAutocomplete(query) {
+        if (query.length < 3) {
+            document.getElementById('autocompleteList').innerHTML = '';
+            return;
+        }
+
+        if (abortController) {
+            abortController.abort();
+        }
+        abortController = new AbortController();
+
+        try {
+            const response = await fetch(`http://localhost:8000/weather/autocomplete?name=${encodeURIComponent(query)}`, {
+                signal: abortController.signal,
+                credentials: 'include'
+            });
+            const data = await response.json();
+            showAutocomplete(data.result);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('Autocomplete error:', error);
+            }
+        }
+    }
+
+    function showAutocomplete(items) {
+        const list = document.getElementById('autocompleteList');
+        list.innerHTML = '';
+
+        items.slice(0, 10).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.textContent = `${item.name}, ${item.country}`;
+            div.onclick = () => selectCity(item);
+            list.appendChild(div);
+        });
+    }
+
+    function selectCity(city) {
+        document.getElementById('cityInput').value = city.name;
+        document.getElementById('autocompleteList').innerHTML = '';
+        fetchWeather(city.id);
+    }
+
+    async function fetchWeather(cityId) {
+        try {
+            const response = await fetch(`http://localhost:8000/weather/weather/${cityId}`, {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            renderWeatherChart(data);
+            fetchSearchHistory();
+        } catch (error) {
+            console.error('Weather fetch error:', error);
+        }
+    }
+
+    function renderWeatherChart(weatherData) {
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+
+        if (currentChart) {
+            currentChart.destroy();
+        }
+
+        const times = weatherData.weather.hourly.time;
+        const temperatures = weatherData.weather.hourly.temperature_2m;
+
+        currentChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: times.map(time =>
+                    new Date(time).toLocaleDateString('ru-RU', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                ),
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: temperatures,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function fetchSearchHistory(url = 'http://localhost:8000/search/search-history/') {
+        try {
+            const response = await fetch(url, {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            renderHistory(data);
+            updatePaginationControls(data);
+        } catch (error) {
+            console.error('History fetch error:', error);
+        }
+    }
+
+    function renderHistory(data) {
+        const historyList = document.getElementById('historyList');
+        historyList.innerHTML = '';
+
+        data.results.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div><strong>${item.city.name}</strong>, ${item.city.country}</div>
+                <small>${new Date(item.created_at).toLocaleString()}</small>
+            `;
+            div.onclick = () => fetchWeather(item.city.id);
+            historyList.appendChild(div);
+        });
+    }
+
+    function updatePaginationControls(data) {
+        totalPages = Math.ceil(data.count / data.results.length);
+        currentPage = getCurrentPage(data.next, data.previous);
+
+        document.getElementById('prevPage').disabled = !data.previous;
+        document.getElementById('nextPage').disabled = !data.next;
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+    }
+
+    function getCurrentPage(next, previous) {
+        if (next) return parseInt(new URL(next).searchParams.get('page')) - 1;
+        if (previous) return parseInt(new URL(previous).searchParams.get('page')) + 1;
+        return 1;
+    }
+
+    document.getElementById('cityInput').addEventListener('input', debounce(function(e) {
+        fetchAutocomplete(e.target.value);
+    }, 300));
+
+    document.getElementById('prevPage').addEventListener('click', () => {
+        fetchSearchHistory(`http://localhost:8000/search/search-history/?page=${currentPage - 1}`);
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        fetchSearchHistory(`http://localhost:8000/search/search-history/?page=${currentPage + 1}`);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            document.getElementById('autocompleteList').innerHTML = '';
+        }
+    });
+let statsCurrentPage = 1;
+let statsTotalPages = 1;
+
+async function fetchSearchStats(url = 'http://localhost:8000/search/search-stats/') {
+try {
+    const response = await fetch(url, {
+        credentials: 'include'
+    });
+    const data = await response.json();
+    renderStats(data);
+    updateStatsPagination(data);
+} catch (error) {
+    console.error('Stats fetch error:', error);
+}
+}
+
+function renderStats(data) {
+const statsList = document.getElementById('statsList');
+statsList.innerHTML = '';
+
+data.results.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'stats-item';
+    div.innerHTML = `
+        <div>
+            <span class="stats-city">${item.city_name}, ${item.country}</span>
+            <small>(${item.latitude.toFixed(2)}, ${item.longitude.toFixed(2)})</small>
+        </div>
+        <span class="stats-count">${item.count}</span>
+    `;
+    statsList.appendChild(div);
+});
+}
+
+function updateStatsPagination(data) {
+statsTotalPages = Math.ceil(data.count / data.results.length);
+statsCurrentPage = getStatsCurrentPage(data.next, data.previous);
+
+document.getElementById('prevStatsPage').disabled = !data.previous;
+document.getElementById('nextStatsPage').disabled = !data.next;
+document.getElementById('statsPageInfo').textContent = `Page ${statsCurrentPage} of ${statsTotalPages}`;
+}
+
+function getStatsCurrentPage(next, previous) {
+if (next) return parseInt(new URL(next).searchParams.get('page')) - 1;
+if (previous) return parseInt(new URL(previous).searchParams.get('page')) + 1;
+return 1;
+}
+
+document.getElementById('prevStatsPage').addEventListener('click', () => {
+fetchSearchStats(`http://localhost:8000/search/search-stats/?page=${statsCurrentPage - 1}`);
+});
+
+document.getElementById('nextStatsPage').addEventListener('click', () => {
+fetchSearchStats(`http://localhost:8000/search/search-stats/?page=${statsCurrentPage + 1}`);
+});
+
+// Initial load
+fetchSearchStats();
+
+    fetchSearchHistory();
+</script>
+</body>
+</html>
