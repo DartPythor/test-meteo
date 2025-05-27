@@ -70,13 +70,12 @@ class CityWeatherView(APIView):
             city = get_object_or_404(CityCached, pk=city_id)
 
             weather_data = MeteoApi.forecast(
-                longitude=city.longitude,
-                latitude=city.latitude
+                longitude=city.longitude, latitude=city.latitude
             )
 
             response_data = {
                 "city": CityWeatherSerializer(city).data,
-                "weather": weather_data
+                "weather": weather_data,
             }
             SearchHistory.objects.create(
                 session_key=request.session.session_key,
@@ -89,6 +88,5 @@ class CityWeatherView(APIView):
 
         except Exception as e:
             return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

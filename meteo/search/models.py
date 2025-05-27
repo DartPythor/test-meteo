@@ -4,7 +4,10 @@ from weather.models import CityCached
 
 
 class SearchHistory(models.Model):
-    session_key = models.CharField(max_length=124, help_text="Сессия пользователя",)
+    session_key = models.CharField(
+        max_length=124,
+        help_text="Сессия пользователя",
+    )
     city = models.ForeignKey(CityCached, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -16,12 +16,12 @@ class UserSearchHistoryView(APIView):
         if not session_key:
             return Response(
                 {"error": "Session not found"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         queryset = SearchHistory.objects.filter(
             session_key=session_key
-        ).order_by('-created_at')
+        ).order_by("-created_at")
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
