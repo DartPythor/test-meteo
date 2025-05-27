@@ -3,6 +3,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+
+from search.models import SearchStat, SearchHistory
 from weather.models import CityCached
 from weather.serializers import CityCachedSerializer, CityWeatherSerializer
 from weather.openmeteo_util import MeteoApi
@@ -76,7 +78,13 @@ class CityWeatherView(APIView):
                 "city": CityWeatherSerializer(city).data,
                 "weather": weather_data
             }
-
+            SearchHistory.objects.create(
+                session_key=request.session.session_key,
+                city=city,
+            )
+            stat, _ = SearchStat.objects.get_or_create(city=city)
+            stat.count += 1
+            stat.save()
             return Response(data=response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
