@@ -8,4 +8,8 @@ urlpatterns = [
         "weather/",
         include("weather.urls", namespace="weather"),
     ),
+    path(
+        "search/",
+        include("search.urls", namespace="search"),
+    ),
 ]
