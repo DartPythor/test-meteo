@@ -3,3 +3,4 @@ django-environ==0.11.2
 djangorestframework==3.16.0
 dotenv==0.9.9
 openmeteo_requests==1.5.0
+git+https://github.com/m0rp43us/openmeteopy
