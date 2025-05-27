@@ -1,14 +1,25 @@
 from pathlib import Path
 
+import environ
+from dotenv import load_dotenv
+
+env = environ.Env()
+environ.Env.read_env()
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = (
-    "django-insecure-mdvnoln%ud#8ky7@45nv!&-mlu7qs%zwd)--!$@$fza#2g21sy"
+    env(
+        "SECRET_KEY",
+        cast=str,
+        default="django-insecure-mdvnoln%ud#8ky7@45nv!&-mlu7qs%zwd)--!$@$fza#2g21sy",
+    ),
 )
 
-DEBUG = True
+DEBUG = env("DEBUG", cast=bool, default=True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
