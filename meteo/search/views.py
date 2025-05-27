@@ -1,9 +1,9 @@
-# views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
-from search.models import SearchHistory
-from search.serializers import SearchHistorySerializer
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
+from search.models import SearchHistory, SearchStat
+from search.serializers import SearchHistorySerializer, SearchStatSerializer
 from search.pagination import StandardResultsPagination
 
 
@@ -32,3 +32,17 @@ class UserSearchHistoryView(APIView):
 
         serializer = SearchHistorySerializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class SearchStatsView(APIView):
+    pagination_class = PageNumberPagination
+    page_size = 10
+
+    def get(self, request):
+        stats = SearchStat.objects.all().order_by("-count")
+
+        paginator = self.pagination_class()
+        paginated_stats = paginator.paginate_queryset(stats, request)
+
+        serializer = SearchStatSerializer(paginated_stats, many=True)
+        return paginator.get_paginated_response(serializer.data)
