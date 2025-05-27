@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python meteo/manage.py migrate &&
+             python meteo/manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./:/app/meteo
+    environment:
+      - DJANGO_SETTINGS_MODULE=meteo.settings
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  sqlite_data:
