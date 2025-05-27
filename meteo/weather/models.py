@@ -6,6 +6,7 @@ class CityCached(models.Model):
         null=False,
         blank=False,
         help_text="Название города",
+        max_length=124,
     )
     latitude = models.FloatField(
         null=False,
@@ -21,8 +22,8 @@ class CityCached(models.Model):
         null=False,
         blank=False,
         help_text="Страна города",
+        max_length=124,
     )
 
     def __str__(self):
         return f"CityCached[{self.name}] {self.country} - ({self.latitude}, {self.longitude})"
-
